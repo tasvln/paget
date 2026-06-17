@@ -5,18 +5,39 @@ import json
 from pathlib import Path
 import asyncio
 
+from datetime import datetime
+import time
+import threading
+
 app = FastAPI()
 
 STATE_FILE = Path("shared/manager_state.json")
 STATE_FILE.parent.mkdir(exist_ok=True)
 
-# status would be -> "pending", "in_progress", "done"
 class Task(BaseModel):
     id: str
     description: str
     assigned_to: str
-    status: str 
+    status: str  # "pending", "in_progress", "done"
     result: str = ""
+    created_at: float = None
+    start_time: float = None
+    end_time: float = None
+    
+    def __init__(self, **data):
+        super().__init__(**data)
+        if self.created_at is None:
+            self.created_at = time.time()
+
+# In agent status
+class AgentStatus:
+    status: str  # "idle", "working", "error"
+    current_task: str = None
+    tasks_completed: int = 0
+    total_time: float = 0  # Sum of all task times
+    avg_time_per_task: float = 0
+    errors: int = 0
+    last_heartbeat: float = None
 
 # with the laws of parallel computing
 class ManagerState(BaseModel):
@@ -65,21 +86,26 @@ def register_agent(agent_id: str):
     save(state)
     return {"status": "registered"}
 
+task_lock = threading.Lock()
+
 # GET next task
 @app.get("/agent/task/next/{agent_id}")
 def get_next_task(agent_id: str):
-    """Agent asks what to do next: what should I do?"""
-    if not state.task_queue:
-        return {"task": None}
+    """Agent asks: what should I do? (Thread-safe)"""
     
-    task_id = state.task_queue.pop(0)
-    task = next((t for t in state.tasks if t.id == task_id), None)
-
-    if task:
-        task.status = "in_progress"
-        task.assigned_to = agent_id
-        save(state)
-        return {"task": task.model_dump()}
+    with task_lock:  # Atomic operation
+        if not state.task_queue:
+            return {"task": None}
+        
+        task_id = state.task_queue.pop(0)  # FIFO, but locked
+        task = next((t for t in state.tasks if t.id == task_id), None)
+        
+        if task:
+            task.status = "in_progress"
+            task.assigned_to = agent_id
+            task.start_time = time.time()  # Add timestamp
+            save(state)
+            return {"task": task.model_dump()}
     
     return {"task": None}
 
@@ -92,14 +118,24 @@ def complete_task(agent_id: str, task_id: str, body: dict):
     task = next((t for t in state.tasks if t.id == task_id), None)
 
     if task:
-        task.status = "done"
-        task.result = result
-        state.agents[agent_id]["tasks_completed"] += 1
-        save(state)
-        print(f"[DEBUG] Task {task_id} marked as done by {agent_id}")
-        return {"status": "task completed"}
+        with task_lock:
+            task.status = "done"
+            task.result = result
+            task.end_time = time.time()
+            
+            # Update agent metrics
+            task_duration = task.end_time - task.start_time
+            agent = state.agents[agent_id]
+            agent["tasks_completed"] += 1
+            agent["total_time"] += task_duration
+            agent["avg_time_per_task"] = agent["total_time"] / agent["tasks_completed"]
+            agent["status"] = "idle"
+            agent["last_heartbeat"] = time.time()
+            
+            save(state)
+            print(f"[DONE] {task_id} by {agent_id} ({task_duration:.1f}s)")
+            return {"status": "task completed"}
     
-    print(f"[DEBUG] Task {task_id} not found")
     return {"status": "task not found"}
 
 # create a task
@@ -120,6 +156,14 @@ def create_task(task_id: str, description: str):
     save(state)
 
     return {"status": "task created"}
+
+@app.post("/agent/heartbeat/{agent_id}")
+def heartbeat(agent_id: str, body: dict):
+    """Agent sends heartbeat"""
+    if agent_id in state.agents:
+        state.agents[agent_id]["status"] = body.get("status", "idle")
+        state.agents[agent_id]["last_heartbeat"] = time.time()
+    return {"status": "heartbeat received"}
 
 @app.get("/state")
 def get_state():

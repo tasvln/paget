@@ -2,12 +2,15 @@ from openai import OpenAI
 import requests
 import json
 import time
+import threading
 
 class Agent:
     def __init__(self, agent_id: str, model: str = "qwen2.5-1.5b-instruct-q4_k_m.gguf"):
         self.agent_id = agent_id
         self.model = model
         self.coordinator_url = "http://localhost:8000"
+        self.current_task = None
+        self.start_heartbeat_thread()
         
         # Use OpenAI SDK for local llama.cpp
         self.client = OpenAI(
@@ -39,6 +42,22 @@ class Agent:
             json={"result": result}
         )
         print(f"[{self.agent_id}] Completed task {task_id}")
+
+    def send_heartbeat(self):
+        """Periodically tell coordinator we're alive"""
+        while True:
+            time.sleep(5)  # Every 5 seconds
+            try:
+                requests.post(
+                    f"{self.coordinator_url}/agent/heartbeat/{self.agent_id}",
+                    json={"status": "working" if self.current_task else "idle"}
+                )
+            except:
+                pass  # Coordinator might be down, that's ok
+    
+    def start_heartbeat_thread(self):
+        thread = threading.Thread(target=self.send_heartbeat, daemon=True)
+        thread.start()
     
     def run(self):
         """Main loop: get task, do work, report back"""
@@ -48,26 +67,33 @@ class Agent:
             task = self.get_next_task()
             
             if not task:
-                print(f"[{self.agent_id}] No tasks available, waiting...")
+                # print(f"[{self.agent_id}] No tasks available, waiting...")
                 time.sleep(5)
                 continue
             
-            print(f"[{self.agent_id}] Got task: {task['description']}")
+            self.current_task = task['id']
+            print(f"[{self.agent_id}] Got task: {task['description'][:50]}...")
             
             # Call local LLM via OpenAI SDK
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[{
-                    "role": "user",
-                    "content": task["description"]
-                }],
-                max_tokens=512
-            )
-            
-            result = response.choices[0].message.content
-            print(f"[{self.agent_id}] Result: {result[:100]}...")
-            
-            self.complete_task(task["id"], result)
+            try:
+                # response = self.client.chat.completions.create(...)
+
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[{
+                        "role": "user",
+                        "content": task["description"]
+                    }],
+                    max_tokens=512
+                )
+
+                result = response.choices[0].message.content
+                self.complete_task(task["id"], result)
+            except Exception as e:
+                print(f"[ERROR] {e}")
+                self.complete_task(task["id"], f"ERROR: {str(e)}")
+
+            self.current_task = None
             time.sleep(1)
 
 if __name__ == "__main__":
