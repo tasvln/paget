@@ -1,0 +1,47 @@
+{
+  "project": "flight_simulator_game",
+  "high_level_goal": "Build a 3D flight simulator game with realistic physics",
+  
+  "components": [
+    {
+      "name": "graphics",
+      "description": "3D rendering system using OpenGL",
+      "requirements": [
+        "FPS >= 60 at 1080p",
+        "Support for terrain rendering",
+        "Lighting system"
+      ]
+    },
+    {
+      "name": "physics",
+      "description": "Flight physics engine",
+      "requirements": [
+        "Gravity simulation: 9.8 m/s²",
+        "Aerodynamic drag",
+        "Collision detection"
+      ]
+    }
+  ],
+  
+  "quality_metrics": {
+    "test_coverage": ">= 80%",
+    "type_hints": true,
+    "docstrings": "all functions",
+    "max_function_length": 50
+  },
+  
+  "tests": [
+    {
+      "name": "fps_benchmark",
+      "type": "performance",
+      "command": "python tests/benchmark_fps.py",
+      "expected_output": ">=60"
+    },
+    {
+      "name": "physics_validation",
+      "type": "functional",
+      "command": "pytest tests/test_physics.py",
+      "expected_output": "PASSED"
+    }
+  ]
+}
