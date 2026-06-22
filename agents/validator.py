@@ -3,7 +3,7 @@ import json
 import subprocess
 import time
 
-class TestAgent:
+class ValidatorAgent:
     def __init__(self, coordinator_url: str = "http://localhost:8000"):
         self.coordinator_url = coordinator_url
         self.agent_id = "test-agent"

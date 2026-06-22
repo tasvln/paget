@@ -5,6 +5,7 @@
   "components": [
     {
       "name": "graphics",
+      "role": "graphics_specialist",
       "description": "3D rendering system using OpenGL",
       "requirements": [
         "FPS >= 60 at 1080p",

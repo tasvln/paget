@@ -52,17 +52,14 @@ class ManagerAgent:
         
         # Create task for each component
         component_task_ids = []
+        
         for component in self.spec.get('components', []):
             task_id = f"{self.project_name}-{component['name']}"
             component_task_ids.append(task_id)
             
             # Build description with requirements
             req_text = "\n".join(f"  • {r}" for r in component.get('requirements', []))
-            description = f"""Build: {component['name']}
-    Description: {component.get('description', 'N/A')}
-
-    Requirements:
-    {req_text}"""
+            description = f"""Build: {component['name']} Description: {component.get('description', 'N/A')} Requirements: {req_text}"""
             
             # Create task
             try:
@@ -98,10 +95,7 @@ class ManagerAgent:
         
         # Create test task (depends on all components)
         test_task_id = f"{self.project_name}-test"
-        test_description = f"""Validate {self.project_name}
-
-    Run all validation checks:
-    {chr(10).join(f"  • {t['name']}: {t.get('command', 'manual')}" for t in self.spec.get('tests', []))}"""
+        test_description = f"""Validate {self.project_name} Run all validation checks: {chr(10).join(f"  • {t['name']}: {t.get('command', 'manual')}" for t in self.spec.get('tests', []))}"""
         
         try:
             resp = requests.post(
@@ -133,68 +127,6 @@ class ManagerAgent:
         resp = requests.get(f"{self.coordinator_url}/state")
         return resp.json()
     
-    def find_failed_tasks(self):
-        """Find tasks that failed validation"""
-        state = self.get_state()
-        failed = [
-            t for t in state.get('tasks', [])
-            if t.get('status') == 'failed' and 
-               t.get('parent_task') == self.project_name and
-           not t['id'].endswith('-refine-v' + str(t.get('retry_count', 0)))
-        ]
-        return failed
-    
-    def create_refinement_tasks(self, failed_task):
-        """Create intelligent refinement task based on failures"""
-        task_id = failed_task['id']
-        errors = failed_task.get('validation_errors', [])
-        retry_count = failed_task.get('retry_count', 0)
-        
-        if retry_count >= failed_task.get('max_retries', 3):
-            print(f"[Manager] {task_id} max retries exceeded")
-            return False
-        
-        # Create refinement task
-        refinement_id = f"{task_id}-refine-v{retry_count + 1}"
-        
-        error_text = "\n".join(f"  ✗ {e}" for e in errors)
-        description = f"""Refine: {failed_task['description'].split(chr(10))[0]}
-
-Previous attempt failed with:
-{error_text}
-
-Requirements (unchanged):
-{chr(10).join(f"  • {r}" for r in failed_task.get('spec_requirements', []))}
-
-Please fix the issues above while maintaining the requirements."""
-        
-        resp = requests.post(
-            f"{self.coordinator_url}/task/create",
-            params={
-                "task_id": refinement_id,
-                "description": description,
-                "spec_requirements": json.dumps(failed_task.get('spec_requirements', {})),
-                "parent_task": failed_task.get('parent_task')
-            }
-        )
-        
-        if resp.json().get("status") == "task created":
-            print(f"[Manager] Created refinement: {refinement_id}")
-            print(f"  Feedback: {len(errors)} issues to fix")
-            return True
-        
-        return False
-    
-    def monitor_and_refine(self):
-        """Monitor for failures and create refinement tasks"""
-        failed = self.find_failed_tasks()
-        
-        if failed:
-            print(f"\n[Manager] Found {len(failed)} failed tasks")
-            for task in failed:
-                print(f"  • {task['id']}")
-                self.create_refinement_tasks(task)
-    
     def get_project_status(self):
         """Print current project status"""
         state = self.get_state()
@@ -207,10 +139,10 @@ Please fix the issues above while maintaining the requirements."""
         pending = sum(1 for t in project_tasks if t['status'] == 'pending')
         
         print(f"\n[Manager] {self.project_name} status:")
-        print(f"  ✓ Done: {done}")
-        print(f"  ⚙ In Progress: {in_prog}")
-        print(f"  ⏳ Pending: {pending}")
-        print(f"  ✗ Failed: {failed}")
+        print(f"  Done: {done}")
+        print(f"  In Progress: {in_prog}")
+        print(f"  Pending: {pending}")
+        print(f"  Failed: {failed}")
         
         if done + failed == len(project_tasks):
             print(f"  → Project complete!")
@@ -239,7 +171,7 @@ Please fix the issues above while maintaining the requirements."""
                 self.get_project_status()
             
             # Check for failed tasks and create refinements
-            self.monitor_and_refine()
+            # self.monitor_and_refine()
             
             # Wait before next check
             time.sleep(5)
