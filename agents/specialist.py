@@ -71,6 +71,7 @@ class SpecialistAgent:
         
         return response.choices[0].message.content
     
+    # TO-DO: Format the code
     def extract_code(self, response):
         if "```python" in response:
             code = response.split("```python")[1].split("```")[0].strip()
