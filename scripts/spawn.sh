@@ -10,7 +10,7 @@ echo "Spawning $AGENT_COUNT agents..."
 
 for i in $(seq 1 $AGENT_COUNT); do
     echo "Starting agent-$i..."
-    python ../agents/agent.py agent-$i $MODEL &
+    python ../agents/specialist.py agent-$i $MODEL &
     sleep 0.5  # Stagger startup
 done
 

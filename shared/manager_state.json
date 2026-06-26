@@ -1,0 +1,142 @@
+{
+  "project_name": "untitled",
+  "agents": {
+    "manager-agent": {
+      "agent_id": "manager-agent",
+      "status": "idle",
+      "current_task": null,
+      "tasks_completed": 0,
+      "total_time": 0.0,
+      "avg_time_per_task": 0.0,
+      "errors": 0,
+      "last_update": 1782408736.058891
+    },
+    "agent-1": {
+      "agent_id": "agent-1",
+      "status": "idle",
+      "current_task": null,
+      "tasks_completed": 1,
+      "total_time": 4.669550895690918,
+      "avg_time_per_task": 4.669550895690918,
+      "errors": 0,
+      "last_update": 1782408756.670636
+    },
+    "agent-2": {
+      "agent_id": "agent-2",
+      "status": "idle",
+      "current_task": null,
+      "tasks_completed": 1,
+      "total_time": 2.9320240020751953,
+      "avg_time_per_task": 2.9320240020751953,
+      "errors": 0,
+      "last_update": 1782408755.3416681
+    },
+    "agent-3": {
+      "agent_id": "agent-3",
+      "status": "idle",
+      "current_task": null,
+      "tasks_completed": 0,
+      "total_time": 0.0,
+      "avg_time_per_task": 0.0,
+      "errors": 0,
+      "last_update": 1782408753.023626
+    },
+    "validator-1": {
+      "agent_id": "validator-1",
+      "status": "idle",
+      "current_task": null,
+      "tasks_completed": 2,
+      "total_time": 0.020650863647460938,
+      "avg_time_per_task": 0.010325431823730469,
+      "errors": 0,
+      "last_update": 1782408784.3175402
+    }
+  },
+  "tasks": [
+    {
+      "id": "calculator-adder",
+      "description": "Build: adder\n    Description: add two numbers\n\n    Requirements:\n      • create add(a,b)",
+      "status": "done",
+      "assigned_to": "agent-1",
+      "result": "def add(a, b):\n    return a + b",
+      "spec_requirements": [
+        "create add(a,b)"
+      ],
+      "validation_errors": [],
+      "retry_count": 0,
+      "max_retries": 3,
+      "parent_task": "calculator",
+      "depends_on": [],
+      "task_type": "implementation",
+      "component_id": null,
+      "original_description": null,
+      "created_at": 1782408736.068723,
+      "start_time": 1782408751.992788,
+      "end_time": 1782408756.662339
+    },
+    {
+      "id": "calculator-adder-validate",
+      "description": "Validate: adder",
+      "status": "done",
+      "assigned_to": "validator-1",
+      "result": "calculator-adder validated successfully",
+      "spec_requirements": {},
+      "validation_errors": [],
+      "retry_count": 0,
+      "max_retries": 3,
+      "parent_task": "calculator",
+      "depends_on": [
+        "calculator-adder"
+      ],
+      "task_type": "validation",
+      "component_id": "calculator-adder",
+      "original_description": null,
+      "created_at": 1782408736.073571,
+      "start_time": 1782408784.299545,
+      "end_time": 1782408784.312396
+    },
+    {
+      "id": "calculator-multiplier",
+      "description": "Build: multiplier\n    Description: multiply two numbers\n\n    Requirements:\n      • create multiply(a,b)",
+      "status": "done",
+      "assigned_to": "agent-2",
+      "result": "def multiply(a, b):\n    return a * b",
+      "spec_requirements": [
+        "create multiply(a,b)"
+      ],
+      "validation_errors": [],
+      "retry_count": 0,
+      "max_retries": 3,
+      "parent_task": "calculator",
+      "depends_on": [],
+      "task_type": "implementation",
+      "component_id": null,
+      "original_description": null,
+      "created_at": 1782408736.077318,
+      "start_time": 1782408752.395155,
+      "end_time": 1782408755.327179
+    },
+    {
+      "id": "calculator-multiplier-validate",
+      "description": "Validate: multiplier",
+      "status": "done",
+      "assigned_to": "validator-1",
+      "result": "calculator-multiplier validated successfully",
+      "spec_requirements": {},
+      "validation_errors": [],
+      "retry_count": 0,
+      "max_retries": 3,
+      "parent_task": "calculator",
+      "depends_on": [
+        "calculator-multiplier"
+      ],
+      "task_type": "validation",
+      "component_id": "calculator-multiplier",
+      "original_description": null,
+      "created_at": 1782408736.0799942,
+      "start_time": 1782408783.267503,
+      "end_time": 1782408783.275303
+    }
+  ],
+  "task_queue": []
+}

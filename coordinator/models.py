@@ -28,6 +28,13 @@ class Task(BaseModel):
     task_type: str = "implementation"
     component_id: Optional[str] = None
 
+    # Set once on the FIRST refinement and never touched again. Lets
+    # create_refinement_task build "Refine: <original first line>" on every
+    # retry without re-deriving it from the (by-then-overwritten)
+    # description, which was causing "Refine: Refine: Refine: " nesting
+    # across repeated retries — confirmed in a live run with 3 retries.
+    original_description: Optional[str] = None
+
     # Timestamps
     created_at: float = None
     start_time: Optional[float] = None
@@ -52,7 +59,6 @@ class Agent(BaseModel):
         super().__init__(**data)
         if self.last_update is None:
             self.last_update = time.time()
-
 
 class ManagerState(BaseModel):
     project_name: str = "untitled"

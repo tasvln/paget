@@ -15,7 +15,9 @@ STATE_FILE.parent.mkdir(exist_ok=True)
 task_lock = threading.Lock()
 
 
-# state load/save
+# ----------------------------
+# state load/save (unchanged)
+# ----------------------------
 def load():
     """Load state from disk"""
     if STATE_FILE.exists():
@@ -39,8 +41,9 @@ def save(state: ManagerState):
 state = load()
 
 
+# ----------------------------
 # routes
-
+# ----------------------------
 @app.get("/")
 def root():
     """Health check with stats"""
@@ -106,7 +109,7 @@ def create_task(
         existing = state.get_task(task_id)
 
         if existing:
-            if existing.status == "done":
+            if existing.status in ("done", "failed"):
                 existing.status = "pending"
                 existing.retry_count = 0
                 existing.result = ""
@@ -153,12 +156,24 @@ def create_task(
 
 
 @app.get("/agent/task/next/{agent_id}")
-def get_next_task(agent_id: str):
-    """Get next available task for agent"""
+def get_next_task(agent_id: str, task_type: str = None):
+    """
+    Get next available task for agent.
+
+    task_type filters the queue to only tasks this agent can actually do —
+    e.g. specialist.py passes task_type=implementation, validator.py passes
+    task_type=validation. Without this, any free agent grabs whatever's
+    next in the queue regardless of kind, which lets a validator end up
+    "completing" an implementation task (reporting file-not-found because
+    it never writes code) and a specialist end up trying to validate
+    something. If task_type is omitted, behavior is unfiltered (accepts
+    anything), kept for backward compatibility.
+    """
     with task_lock:
         available = [
             tid for tid in state.task_queue
             if are_dependencies_met(tid)
+            and (task_type is None or state.get_task(tid).task_type == task_type)
         ]
 
         if not available:
@@ -190,48 +205,71 @@ def get_next_task(agent_id: str):
 # ----------------------------
 def create_refinement_task(target: Task, errors: List[str]) -> str:
     """
-        Create a refinement task for an IMPLEMENTATION task. `target` is always
-        the implementation task that needs fixing — for a failed validation
-        task, the caller resolves target via component_id before calling this.
+    Refine an IMPLEMENTATION task IN PLACE — same id, same object, just a
+    new description (with feedback folded in) and status reset to pending
+    so it goes back into the queue. `target` is always the implementation
+    task that needs fixing — for a failed validation task, the caller
+    resolves target via component_id before calling this.
+
+    This used to create a brand new task with id "{target.id}-refine-v{n}"
+    each retry. That broke validation tasks that depend_on the original
+    id: once the original task's status became "failed" permanently, any
+    validation task depending on it could never unlock, even after a
+    refinement succeeded, because depends_on still pointed at the old
+    (failed) id and nothing ever rewrote it. Reusing the same id sidesteps
+    the problem entirely — nothing depending on this id ever needs to be
+    updated, because the id never changes.
+
+    Two more bugs fixed here after observing a real run:
+
+    1. original_description is captured ONCE (first refinement only) and
+       reused on every subsequent retry. The old code took
+       target.description.split('\n')[0] each time — but description gets
+       overwritten to "Refine: ..." after the first retry, so the SECOND
+       retry's first line was already "Refine: " with nothing after it.
+       Confirmed in a live run as "Refine: Refine: Refine: " nesting
+       across three retries.
+
+    2. Feedback text uses plain "- " instead of "✗"/"•" unicode bullets.
+       A live run showed the model echoing those exact unicode characters
+       back as literal characters in its "code" output, which then failed
+       to compile with "invalid character '✗'" — i.e. the error-reporting
+       formatting was leaking into and corrupting the next attempt.
     """
     target.retry_count += 1
-    refinement_id = f"{target.id}-refine-v{target.retry_count}"
 
-    error_text = "\n".join(f"  ✗ {e}" for e in errors)
-    description = (
-        f"Refine: {target.description.split(chr(10))[0]}\n\n"
+    # Capture the original description text on the FIRST refinement only,
+    # so it doesn't get overwritten/lost on subsequent retries.
+    if target.original_description is None:
+        target.original_description = target.description.split(chr(10))[0]
+
+    error_text = "\n".join(f"- {e}" for e in errors)
+    target.description = (
+        f"Refine: {target.original_description}\n\n"
         f"Previous attempt failed with:\n{error_text}\n\n"
         f"Requirements (unchanged):\n" +
-        "\n".join(f"  • {r}" for r in (target.spec_requirements or []))
+        "\n".join(f"- {r}" for r in (target.spec_requirements or []))
     )
+    target.status = "pending"
+    target.validation_errors = errors
+    target.result = ""
 
-    refinement = Task(
-        id=refinement_id,
-        description=description,
-        status="pending",
-        parent_task=target.parent_task,
-        spec_requirements=target.spec_requirements,
-        retry_count=target.retry_count,
-        max_retries=target.max_retries,
-        task_type="implementation",
-        component_id=target.id,
-    )
-    state.tasks.append(refinement)
-    state.task_queue.append(refinement_id)
-    return refinement_id
+    if target.id not in state.task_queue:
+        state.task_queue.append(target.id)
+
+    return target.id
 
 
 @app.post("/agent/task/complete/{agent_id}")
 def complete_task(agent_id: str, task_id: str, body: dict):
     """
-        Complete task - mark as done, or route failure to the right target.
+    Complete task - mark as done, or route failure to the right target.
 
-        For an "implementation" task, the target of refinement is the task
-        itself (same as before). For a "validation" task, the target is
-        component_id — the validation task has nothing to fix, the bug lives in
-        the implementation it checked.
+    For an "implementation" task, the target of refinement is the task
+    itself (same as before). For a "validation" task, the target is
+    component_id — the validation task has nothing to fix, the bug lives in
+    the implementation it checked.
     """
-     
     result = body.get("result", "")
     validation_errors = body.get("validation_errors", [])
 
@@ -258,11 +296,17 @@ def complete_task(agent_id: str, task_id: str, body: dict):
                 save(state)
                 return {"status": "task failed, target not found"}
 
-            # Validation tasks themselves are marked failed for visibility
-            # but are never retried/refined directly — only implementation
-            # tasks are.
-            task.status = "failed"
-            task.validation_errors = validation_errors
+            # If task and target are different objects, task is a
+            # validation wrapper — mark IT failed permanently for
+            # visibility (validation tasks are never themselves refined).
+            # If task IS target (a plain implementation task failing on
+            # its own with no validation wrapper), don't touch status here
+            # at all — create_refinement_task below is the sole owner of
+            # target.status in that case, avoiding a confusing
+            # failed-then-immediately-pending flip on the same object.
+            if task is not target:
+                task.status = "failed"
+                task.validation_errors = validation_errors
 
             if target.retry_count < target.max_retries:
                 refinement_id = create_refinement_task(target, validation_errors)
@@ -297,8 +341,78 @@ def complete_task(agent_id: str, task_id: str, body: dict):
                     if are_dependencies_met(other.id) and other.id not in state.task_queue:
                         state.task_queue.append(other.id)
 
+            # If this was the LAST validation task for the project to pass,
+            # generate main.py wiring up every component. Checking this on
+            # every successful completion (not just validation ones) is
+            # cheap and avoids needing a separate "are we done" poller.
+            if task.task_type == "validation":
+                maybe_generate_main(task.parent_task)
+
             save(state)
             return {"status": "task completed"}
+
+
+def maybe_generate_main(project_name: str):
+    """
+    If every validation task belonging to this project is now "done",
+    write output/main.py importing each component module. Does nothing
+    (silently) if the project isn't fully validated yet, or if there are
+    no validation tasks at all (e.g. validator wasn't used this run).
+    """
+    if not project_name:
+        return
+
+    validation_tasks = [
+        t for t in state.tasks
+        if t.parent_task == project_name and t.task_type == "validation"
+    ]
+    if not validation_tasks:
+        return
+    if not all(t.status == "done" for t in validation_tasks):
+        return
+
+    component_ids = [t.component_id for t in validation_tasks if t.component_id]
+    if not component_ids:
+        return
+
+    output_dir = Path("output")
+    output_dir.mkdir(exist_ok=True)
+
+    lines = [
+        f'"""',
+        f"Auto-generated entry point for project '{project_name}'.",
+        f"Generated once all {len(component_ids)} component(s) passed validation.",
+        f"",
+        f"Uses importlib instead of plain 'import' because component ids",
+        f"(and therefore filenames) contain hyphens, e.g. '{component_ids[0]}.py' —",
+        f"'import {component_ids[0]}' is not valid Python syntax.",
+        f'"""',
+        "",
+        "import importlib.util",
+        "import os",
+        "",
+        "_here = os.path.dirname(os.path.abspath(__file__))",
+        "_modules = {}",
+        "",
+        "def _load(component_id):",
+        "    path = os.path.join(_here, f'{component_id}.py')",
+        "    spec = importlib.util.spec_from_file_location(component_id, path)",
+        "    module = importlib.util.module_from_spec(spec)",
+        "    spec.loader.exec_module(module)",
+        "    return module",
+        "",
+    ]
+    for cid in component_ids:
+        lines.append(f"_modules['{cid}'] = _load('{cid}')")
+    lines.append("")
+    lines.append("if __name__ == '__main__':")
+    lines.append(f"    print('{project_name}: all components loaded successfully')")
+    for cid in component_ids:
+        lines.append(f"    print('  - {cid}:', _modules['{cid}'].__file__)")
+
+    main_path = output_dir / "main.py"
+    main_path.write_text("\n".join(lines) + "\n")
+    print(f"[coordinator] All components validated — generated {main_path}")
 
 
 @app.get("/state")

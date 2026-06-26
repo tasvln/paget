@@ -1,74 +1,19 @@
 {
-  "project": "gaussian_splatting_viewer",
-  "high_level_goal": "Build a 3D Gaussian Splatting viewer with OpenGL rendering and web interface",
-  
+  "project": "calculator",
+
   "components": [
     {
-      "name": "gaussian_loader",
-      "role": "python_specialist",
-      "description": "Load and parse 3D Gaussian Splatting data from PLY files",
+      "name": "adder",
+      "description": "add two numbers",
       "requirements": [
-        "Parse PLY file format",
-        "Extract Gaussian parameters (position, covariance, color)",
-        "Handle large point clouds (1M+ points)",
-        "Efficient data structures for GPU transfer"
-      ],
-      "agent_constraints": [
-        "Use NumPy for efficient array operations",
-        "Implement streaming for large files",
-        "Validate data integrity",
-        "Add progress reporting"
+        "create add(a,b)"
       ]
     },
     {
-      "name": "gl_renderer",
-      "role": "graphics_specialist",
-      "description": "OpenGL-based real-time rendering of 3D Gaussians",
+      "name": "multiplier",
+      "description": "multiply two numbers",
       "requirements": [
-        "Vertex/fragment shaders for Gaussian rasterization",
-        "Camera controls (pan, zoom, rotate)",
-        "Real-time rendering at 60+ FPS",
-        "Support for transparency and compositing"
-      ],
-      "agent_constraints": [
-        "Use PyOpenGL for bindings",
-        "Write GLSL shaders",
-        "Profile for performance bottlenecks",
-        "Handle GPU memory efficiently"
-      ]
-    },
-    {
-      "name": "web_interface",
-      "role": "web_specialist",
-      "description": "HTML/JavaScript web interface for visualization control",
-      "requirements": [
-        "Interactive controls for camera and rendering parameters",
-        "Real-time parameter adjustment",
-        "File upload for PLY data",
-        "Display FPS and rendering stats"
-      ],
-      "agent_constraints": [
-        "Use vanilla JavaScript only",
-        "Responsive HTML5 design",
-        "WebSocket for real-time updates",
-        "Minimize bundle size"
-      ]
-    },
-    {
-      "name": "ipc_bridge",
-      "role": "python_specialist",
-      "description": "Inter-process communication between Python backend and OpenGL/Web frontend",
-      "requirements": [
-        "WebSocket server for web-to-Python communication",
-        "Efficient data serialization",
-        "Handle concurrent requests",
-        "State synchronization"
-      ],
-      "agent_constraints": [
-        "Use asyncio for concurrent handling",
-        "Implement JSON serialization",
-        "Add connection pooling",
-        "Handle reconnection logic"
+        "create multiply(a,b)"
       ]
     }
   ]
