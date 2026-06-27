@@ -1,4 +1,4 @@
-# Multi-Agent Code Generation Framework
+# Multi-Agent Code Generation
 
 A lightweight multi-agent framework for orchestrating multiple LLM-powered agents to collaboratively generate software from a structured project specification.
 
@@ -122,21 +122,25 @@ Validation failures trigger automatic refinement through the coordinator.
 ```
 project/
 │
-├── coordinator.py
-├── manager.py
-├── specialist.py
-├── validator.py
-├── models.py
+├── agents/
+│   ├── manager.py
+│   ├── specialist.py
+│   └── validator.py
 │
-├── output/
-│   ├── component_a.py
-│   ├── component_b.py
-│   └── main.py
+├── coordinator/
+│   ├── server.py
+│   ├── models.py
 │
 ├── shared/
-│   └── manager_state.json
+│   └── manager_state.py
 │
-└── SPEC.json
+├── spec/
+│   └── spec.json
+│ 
+├── output/
+│   ├── *.py files
+│   └── main.py
+
 ```
 
 ---
@@ -239,7 +243,7 @@ python coordinator.py
 Start the manager:
 
 ```bash
-python manager.py SPEC.json
+python manager.py spec.json
 ```
 
 Start one or more specialists:
@@ -290,7 +294,7 @@ Potential improvements include:
 
 ---
 
-# Technologies
+# Dependencies
 
 * Python
 * FastAPI

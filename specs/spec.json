@@ -1,19 +1,55 @@
 {
-  "project": "calculator",
+  "project": "image_processing_toolkit",
 
   "components": [
     {
-      "name": "adder",
-      "description": "add two numbers",
+      "name": "image_loader",
+      "description": "Load images from disk.",
       "requirements": [
-        "create add(a,b)"
+        "create load_image(path)",
+        "support PNG and JPG files",
+        "return image metadata"
       ]
     },
     {
-      "name": "multiplier",
-      "description": "multiply two numbers",
+      "name": "image_filters",
+      "description": "Apply basic image filters.",
       "requirements": [
-        "create multiply(a,b)"
+        "create grayscale(image)",
+        "create invert(image)",
+        "create brightness(image, value)"
+      ]
+    },
+    {
+      "name": "image_resize",
+      "description": "Resize images.",
+      "requirements": [
+        "create resize(image, width, height)",
+        "preserve image quality"
+      ]
+    },
+    {
+      "name": "image_statistics",
+      "description": "Calculate image statistics.",
+      "requirements": [
+        "create average_color(image)",
+        "create histogram(image)"
+      ]
+    },
+    {
+      "name": "exporter",
+      "description": "Save processed images.",
+      "requirements": [
+        "create save_image(image, path)",
+        "support PNG output"
+      ]
+    },
+    {
+      "name": "pipeline",
+      "description": "Combine image processing operations.",
+      "requirements": [
+        "create ImagePipeline class",
+        "allow chaining operations"
       ]
     }
   ]

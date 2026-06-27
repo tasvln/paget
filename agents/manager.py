@@ -160,10 +160,10 @@ class ManagerAgent:
         pending = sum(1 for t in project_tasks if t['status'] == 'pending')
 
         print(f"\n[Manager] {self.project_name} status:")
-        print(f"  ✓ Done: {done}")
-        print(f"  ⚙ In Progress: {in_prog}")
-        print(f"  ⏳ Pending: {pending}")
-        print(f"  ✗ Failed: {failed}")
+        print(f"  Done: {done}")
+        print(f"  In Progress: {in_prog}")
+        print(f"  Pending: {pending}")
+        print(f"  Failed: {failed}")
 
         if failed:
             print(f"  → Failed tasks (check validation_errors in /state for file paths):")
@@ -200,6 +200,6 @@ class ManagerAgent:
 if __name__ == "__main__":
     import sys
 
-    spec_file = sys.argv[1] if len(sys.argv) > 1 else "SPEC.json"
+    spec_file = sys.argv[1] if len(sys.argv) > 1 else "spec.json"
     manager = ManagerAgent(spec_file=spec_file)
     manager.run()
