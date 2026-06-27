@@ -6,6 +6,12 @@ Rather than asking a single language model to generate an entire application, th
 
 > **Status:** Experimental research project.
 
+<img width="797" height="416" alt="Screenshot 2026-06-26 203642" src="https://github.com/user-attachments/assets/f48d7884-c42b-4448-a12b-595112fcb2df" />
+
+<img width="792" height="463" alt="Screenshot 2026-06-26 203811" src="https://github.com/user-attachments/assets/dd90b225-3c2b-44d7-b1aa-e651ba4b89d6" />
+
+<img width="392" height="153" alt="Screenshot 2026-06-26 203831" src="https://github.com/user-attachments/assets/623d9ef0-b028-41f7-88c9-598ec49dfa33" />
+
 ---
 
 # Features
